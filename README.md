@@ -42,3 +42,18 @@ Una vez que Express ejecuta sus middlewares y finaliza la respuesta, en lugar de
 4. Principios de 12-Factor App y Seguridad con variables de entorno
 Si se sube un archivo .env con credenciales reales a un repositorio público, bots automatizados y atacantes pueden extraerlas en cuestión de segundos. Esto puede resultar en el robo de datos, uso no autorizado de servicios de pago y facturación masiva y fraudulenta en servicios cloud (como AWS o APIs de IA).
 Netlify permite inyectar variables de entorno de forma segura directamente desde su panel de control o CLI. Estas variables se almacenan en el servidor de compilación y se exponen al entorno de ejecución solo cuando la aplicación corre, manteniéndose completamente ausentes del control de versiones.
+
+5. Riesgo de Open Relay y Abuso en un Endpoint POST de Correo
+Exponer un endpoint POST para envío de correos sin autenticación, sin CAPTCHA y sin límites de tasa (rate limiting) expone al servidor a consecuencias técnicas y de reputación graves:
+
+Consecuencias técnicas:
+
+Agotamiento de recursos (DoS): Bots maliciosos pueden saturar el servidor con millones de peticiones por segundo, colapsando la CPU, la memoria y la cuota del proveedor de correo (como SendGrid, AWS SES o SMTP propio).
+
+Uso como Open Relay / Spam Relay: Tu servidor puede ser utilizado por actores maliciosos para enviar masivamente correos de phishing, estafas o malware a miles de víctimas inocentes utilizando tu infraestructura.
+
+Consecuencias de reputación de dominio:
+
+Listas negras (DNSBL / Spamhaus): Las direcciones IP y el dominio de tu servidor serán marcados rápidamente como emisores de spam.
+
+Destrucción de la entregabilidad: Los proveedores de correo legítimos (Gmail, Outlook, Yahoo) rechazarán o enviarán a la carpeta de spam cualquier correo legítimo que intente enviar tu aplicación en el futuro, dañando severamente la operatividad del negocio.
