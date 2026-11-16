@@ -11,7 +11,7 @@ const router = express.Router();
 
 app.use(express.json());
 
-// Conectar el evento crudo de AWS Lambda/Netlify con @netlify/blobs
+
 app.use((req, res, next) => {
   if (req.lambdaEvent) {
     connectLambda(req.lambdaEvent);
@@ -19,9 +19,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// =============================================================
-// MIDDLEWARES Y HELPERS
-// =============================================================
+
 const requireApiKey = (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
   if (!apiKey || apiKey !== process.env.API_SECRET_KEY) {
@@ -41,13 +39,12 @@ function esCorreoValido(email) {
 function obtenerAlmacenMetricas() {
   return getStore({
     name: 'funnel-metrics',
-    consistency: 'strong'
+    consistency: 'strong',
+    siteID: process.env.NETLIFY_SITE_ID,
+    token: process.env.NETLIFY_AUTH_TOKEN
   });
 }
 
-// =============================================================
-// TUS RUTAS ORIGINALES (/api/time y /api/send-email)
-// =============================================================
 router.get('/time', (req, res) => {
   const now = new Date();
   return res.status(200).json({
@@ -140,9 +137,6 @@ router.post('/send-email', requireApiKey, async (req, res) => {
   }
 });
 
-// =============================================================
-// ENDPOINT 1: Registrar evento en el funnel (POST /api/metrics)
-// =============================================================
 router.post('/metrics', async (req, res) => {
   try {
     const { step, source, sessionId, metadata } = req.body;
@@ -185,9 +179,6 @@ router.post('/metrics', async (req, res) => {
   }
 });
 
-// =============================================================
-// ENDPOINT 2: Consultar y resumir métricas (GET /api/metrics)
-// =============================================================
 router.get('/metrics', async (req, res) => {
   try {
     const { step, source } = req.query;
@@ -241,9 +232,6 @@ router.get('/metrics', async (req, res) => {
   }
 });
 
-// =============================================================
-// RETO 3: Exportación de métricas a CSV (GET /api/metrics/export?format=csv)
-// =============================================================
 router.get('/metrics/export', async (req, res) => {
   try {
     const { format } = req.query;
@@ -299,9 +287,6 @@ router.get('/metrics/export', async (req, res) => {
   }
 });
 
-// =============================================================
-// VINCULAR ROUTER Y EXPORTAR HANDLER CON EVENTO LAMBDA
-// =============================================================
 app.use('/api', router);
 
 export const handler = serverless(app, {
