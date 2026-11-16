@@ -1,5 +1,5 @@
 ![Prueba Postman tofu](./assets/TOFU.jpg)
-![Prueba Postman bofu](./assets/Bofu.jpg)
+![Prueba Postman bofu](./assets/BOFU.jpg)
 ![Prueba Postman resumen](./assets/resumen.jpg)
 ![Netlify](./assets/blob.jpg)
 
