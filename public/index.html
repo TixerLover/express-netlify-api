@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Demo Day - Telemetría del Funnel</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 820px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+    .card {
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      margin-bottom: 20px;
+    }
+    .badge {
+      display: inline-block;
+      background: #e2e8f0;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    button {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    button.secondary {
+      background: #0f766e;
+    }
+    button.secondary:hover {
+      background: #115e59;
+    }
+    button.export {
+      background: #7c3aed;
+    }
+    button.export:hover {
+      background: #6d28d9;
+    }
+    pre {
+      background: #0f172a;
+      color: #38bdf8;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Panel de Telemetría (Netlify Blobs)</h1>
+
+  <div class="card">
+    <h3>Estado de Sesión y UTM Detectados (Reto 2)</h3>
+    <p><strong>Session ID:</strong> <span id="ui-session" class="badge">Cargando...</span></p>
+    <p><strong>UTM Detectados:</strong> <span id="ui-utm" class="badge">Ninguno</span></p>
+    <small>Tip: Prueba abrir esta página agregando <code>?utm_source=ig_story&amp;utm_medium=social&amp;utm_campaign=demoday</code> al final de la URL.</small>
+  </div>
+
+  <div class="card">
+    <h3>1. Simular Eventos del Funnel (POST /api/metrics)</h3>
+    <div class="btn-group">
+      <button type="button" onclick="registrarMetrica('tofu_attraction', 'qr_campus')">1. Escaneo QR</button>
+      <button type="button" onclick="registrarMetrica('mofu_landing', 'web_direct')">2. Vista Landing</button>
+      <button type="button" onclick="registrarMetrica('bofu_interaction', 'boton_jugar')">3. Clic Jugar Demo</button>
+      <button type="button" onclick="registrarMetrica('bofu_cross_promo', 'alianza_equipo')">4. Cross-Promo Aliados</button>
+      <button type="button" onclick="registrarMetrica('feedback_submission', 'form_demoday')">5. Enviar Evaluación</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>2. Consultar, Filtrar (Reto 1) y Exportar (Reto 3)</h3>
+    <div class="btn-group">
+      <button type="button" class="secondary" onclick="consultarMetricas('')">Ver Todas las Métricas</button>
+      <button type="button" class="secondary" onclick="consultarMetricas('?step=bofu_interaction')">Filtrar step=bofu_interaction</button>
+      <button type="button" class="secondary" onclick="consultarMetricas('?source=qr_campus')">Filtrar source=qr_campus</button>
+      <a href="/api/metrics/export?format=csv" download="metricas_funnel.csv">
+        <button type="button" class="export">Descargar CSV</button>
+      </a>
+    </div>
+  </div>
+
+  <h3>Respuesta del Servidor:</h3>
+  <pre id="consola">Esperando interacción...</pre>
+
+  <script>
+
+    function obtenerOCrearSessionId() {
+      var sessionId = sessionStorage.getItem('funnel_session_id');
+      if (!sessionId) {
+        var uuid = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : Math.random().toString(36).substring(2, 15);
+        sessionId = 'sess_' + uuid;
+        sessionStorage.setItem('funnel_session_id', sessionId);
+      }
+      return sessionId;
+    }
+
+
+    function extraerParametrosUTM() {
+      var params = new URLSearchParams(window.location.search);
+      var utmData = {};
+      var utmKeys = ['utm_source', 'utm_medium', 'utm_campaign'];
+
+      for (var i = 0; i < utmKeys.length; i++) {
+        var key = utmKeys[i];
+        var valor = params.get(key);
+        if (valor) {
+          utmData[key] = valor;
+        }
+      }
+      return utmData;
+    }
+
+    async function registrarMetrica(paso, origenDefault, extraMetadata) {
+      var sessionId = obtenerOCrearSessionId();
+      var utmParams = extraerParametrosUTM();
+      var canalOrigen = utmParams.utm_source || origenDefault;
+
+      var metadataFinal = Object.assign(
+        {},
+        utmParams,
+        extraMetadata || {},
+        { userAgent: navigator.platform }
+      );
+
+      var payload = {
+        step: paso,
+        source: canalOrigen,
+        sessionId: sessionId,
+        metadata: metadataFinal
+      };
+
+      try {
+        var res = await fetch('/api/metrics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: true
+        });
+        var data = await res.json();
+        mostrarEnConsola(data);
+      } catch (err) {
+        mostrarEnConsola({ status: 'error', message: err.message });
+      }
+    }
+
+    async function consultarMetricas(queryString) {
+      try {
+        var res = await fetch('/api/metrics' + (queryString || ''));
+        var data = await res.json();
+        mostrarEnConsola(data);
+      } catch (err) {
+        mostrarEnConsola({ status: 'error', message: err.message });
+      }
+    }
+
+    function mostrarEnConsola(datos) {
+      document.getElementById('consola').textContent = JSON.stringify(datos, null, 2);
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+      var sessionId = obtenerOCrearSessionId();
+      var utmParams = extraerParametrosUTM();
+
+      document.getElementById('ui-session').textContent = sessionId;
+      document.getElementById('ui-utm').textContent = Object.keys(utmParams).length > 0
+        ? JSON.stringify(utmParams)
+        : 'Sin parámetros UTM en la URL';
+
+      registrarMetrica('mofu_landing', 'directo');
+    });
+  </script>
+</body>
+</html>
